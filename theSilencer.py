@@ -64,6 +64,8 @@ def printSysInfoLogo():
 def printSysInfo():
     global sysinfo, back
 
+    os.system("clear")
+
     sysinfo = True
     back = False
 
@@ -108,12 +110,15 @@ def printSysInfo():
             if option == 3:
                 back = True
                 sysinfo = False
+                os.system("clear")
         else:
             print()
             print(Fore.RED + "Your fucking moron. Can't u read?? Choose a option between 0 and 3 !!" + Fore.RESET)
 
 def handleBluetooth():
     global bluetooth, back
+
+    os.system("clear")
 
     btable = Table(title= "[bold red] Bluetooth Menu [/bold red]")
     btable.add_column("Nr.")
@@ -134,10 +139,13 @@ def handleBluetooth():
         else:
             back = True
             bluetooth = False
+            os.system("clear")
     
 def handleWiFi():
     global wifi, back
 
+    os.system("clear")
+    
     wifi = True
     back = False
 
@@ -172,6 +180,7 @@ def handleWiFi():
             if option == 5:
                 back = True
                 wifi = False
+                os.system("clear")
         else:
             print()
             print(Fore.RED + "Your fucking moron. Can't u read?? Choose a option between 0 and 4 !!" + Fore.RESET)

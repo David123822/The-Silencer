@@ -1,7 +1,9 @@
 # The-Silencer
 
 ======================================================================
+
 This was developed and tested on a Raspberry Pi 4 running Raspbian OS.
+
 ======================================================================
 
 🔥 Wireless Attack Toolkit (WiFi & Bluetooth)

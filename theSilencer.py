@@ -8,11 +8,13 @@ try:
     import os
     import time
     import sys
+    import re
 except ModuleNotFoundError:
     print("Try installing the dependencies")
     print("Also install the Aircrack-ng suite on your sistem")
 
 from wifi import WiFi
+from bluetooth import Bluetooth
 
 console = Console()
 wifi_scanner = None
@@ -23,6 +25,8 @@ sysinfo = False
 ap_mac = None
 client_mac = None
 clients = []
+ble_scanner = False
+
 
 def printLogo2():
     print(Fore.RED + """
@@ -122,8 +126,46 @@ def printSysInfo():
             print()
             print(Fore.RED + "Your fucking moron. Can't u read?? Choose a option between 0 and 3 !!" + Fore.RESET)
 
+
+def get_hci_adapters():
+       try:
+           result = subprocess.run(['hciconfig'], capture_output=True, text=True)
+           # Match lines starting with hci followed by a digit
+           adapters = re.findall(r'^(hci\d+):', result.stdout, re.MULTILINE)
+           return adapters
+       except Exception as e:
+           print(f"Error: {e}")
+           return []
+   
+def list_and_choose_adapters():
+    global console
+
+    table = Table(title= "Available bluetooth interfaces: ")
+    table.add_column("Index", justify= "center", style= "yellow")
+    table.add_column("Adapter", justify= "left", style= "green")
+    adapters = get_hci_adapters()
+    for i, adapter in enumerate(adapters):
+        table.add_row(str(i), adapter)
+    
+    console.print(table)
+    run = True
+    while run:
+        choice = input(Fore.GREEN + "\n> " + Fore.RESET)
+        if choice.lower() == "q":
+            break
+        else:
+            try:
+                index = int(choice)
+                if 0 <= index < len(adapters):
+                    run = False
+                    return adapters[index]
+                else:
+                    print("\nLearn to read Moron!!")
+            except ValueError:
+                print("\nLearn to read Moron!!")
+
 def handleBluetooth():
-    global bluetooth, back
+    global bluetooth, back, ble_scanner
 
     os.system("clear")
 
@@ -131,22 +173,82 @@ def handleBluetooth():
     btable.add_column("Nr.")
     btable.add_column("Option")
 
-    btable.add_row("n/a", "LOL, come back later. Still under development")
-    btable.add_row("0", "Back")
+    btable.add_row("0", "Show available adapters")
+    btable.add_row("1", "Scan devices")
+    btable.add_row("2", "Attack from curent scan")
+    btable.add_row("3", "Attack from history")
+    btable.add_row("4", "Back")
 
     while bluetooth and not back:
         printBluetoothLogo()
         console.print(btable)
 
-        option = int(input(Fore.GREEN + "> " + Fore.RESET))
+        try:
+            option = int(input(Fore.GREEN + "> " + Fore.RESET))
+        except ValueError:
+            print(Fore.RED + "Please enter a number." + Fore.RESET)
+            continue
 
-        if option != 0:
-            print()
-            print(Fore.RED + "Your fucking moron. Can't u read?? Come back later. Still under development !!!" + Fore.RESET)
+
+        if option >= 0 and option <= 4:
+            if option == 0:
+                adapter = list_and_choose_adapters()
+
+                if not adapter:
+                    print("No adapter selected. Exiting...")
+                    exit(0)
+                
+                bluetooth = Bluetooth(adapter, console)
+                ble_scanner = True
+            
+            if option == 1:
+                if ble_scanner is False:
+                    print(Fore.RED + "[+] You need to select an adapter first (option 0)." + Fore.RESET)
+                    console.print(btable)
+                else:
+                    mac = bluetooth.display_devices()
+                    if mac is None:
+                        print(Fore.RED + "[+] No devices were seen" + Fore.RESET)
+            
+            if option == 2:
+
+                if ble_scanner is False:
+                    print(Fore.RED + "[+] You need to select an adapter first (option 0)." + Fore.RESET)
+                    console.print(btable)
+
+                if mac is None:
+                    print(Fore.RED + "[+] No devices were seen" + Fore.RESET)
+                    console.print(btable)
+                else:
+                   bluetooth.run_attack(mac)
+
+            if option == 3:
+                if ble_scanner is False:
+                    print(Fore.RED + "[+] You need to select an adapter first (option 0)." + Fore.RESET)
+                    console.print(btable)
+
+                mac = 0
+                mac =  bluetooth.display_devices_from_file()
+                if mac is not None:
+                    bluetooth.run_attack(mac)
+                else:
+                    console.print(btable)
+            
+            if option == 4:
+                if 'bluetooth' in locals():
+                    bluetooth.clear_bluetooth_data()
+                else:
+                    print(Fore.YELLOW + "[!] No adapter initialized. Nothing to clear." + Fore.RESET)
+
+                back = True
+                ble_scanner = False
+                bluetooth = False
+                os.system("clear")
+
         else:
-            back = True
-            bluetooth = False
-            os.system("clear")
+            print()
+            print(Fore.RED + "Your fucking moron. Can't u read?? Choose a option between 0 and 4 !!" + Fore.RESET)
+
 
 def is_monitor_mode(interface):
     
